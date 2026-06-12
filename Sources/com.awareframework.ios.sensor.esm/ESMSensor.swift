@@ -37,6 +37,8 @@ public final class ESMSensor: AwareSensor {
     public static let ACTION_AWARE_ESM_EXPIRED       = "com.awareframework.ios.sensor.esm.ACTION_EXPIRED"
     public static let ACTION_AWARE_ESM_SYNC          = "com.awareframework.ios.sensor.esm.ACTION_SYNC"
     public static let ACTION_AWARE_ESM_SYNC_COMPLETION = "com.awareframework.ios.sensor.esm.ACTION_SYNC_COMPLETION"
+    public static let EXTRA_STATUS                   = "status"
+    public static let EXTRA_ERROR                    = "error"
 
     public static let TAG = "com.awareframework.ios.sensor.esm"
 
@@ -64,6 +66,13 @@ public final class ESMSensor: AwareSensor {
         super.init()
         self.CONFIG = config
         self.initializeDbEngine(config: config)
+        super.syncConfig = DbSyncConfig().apply { syncConfig in
+            syncConfig.serverType = config.serverType
+            syncConfig.studyNumber = config.studyNumber
+            syncConfig.studyKey = config.studyKey
+            syncConfig.debug = config.debug
+            syncConfig.batchSize = 1000
+        }
         self.esmSubSensor = ESMSubSensor(config)
     }
 
@@ -84,6 +93,22 @@ public final class ESMSensor: AwareSensor {
 
     public override func sync(force: Bool = false) {
         notificationCenter.post(name: .actionAwareESMSync, object: self)
+        esmSubSensor?.applySyncSettings(
+            from: CONFIG,
+            parentSyncConfig: syncConfig,
+            completionHandler: { [weak self] status, error in
+                guard let self else { return }
+                var userInfo: [String: Any] = [ESMSensor.EXTRA_STATUS: status]
+                if let error {
+                    userInfo[ESMSensor.EXTRA_ERROR] = error
+                }
+                self.notificationCenter.post(
+                    name: .actionAwareESMSyncCompletion,
+                    object: self,
+                    userInfo: userInfo
+                )
+            }
+        )
         esmSubSensor?.sync(force: force)
     }
 

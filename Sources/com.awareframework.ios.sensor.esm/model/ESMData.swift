@@ -29,7 +29,7 @@ public struct ESMData: BaseDbModelSQLite {
     public var esmStatus: Int
     public var esmNotificationTime: Int64
 
-    public static let databaseTableName = "esm"
+    public static let databaseTableName = "ios_esm"
 
     // MARK: Init
 

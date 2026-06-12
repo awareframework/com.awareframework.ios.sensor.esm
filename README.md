@@ -241,7 +241,7 @@ https://raw.githubusercontent.com/smalldatalab/android-pam/master/app/src/main/a
 
 The 16 affect categories are arranged as follows:
 
-|  | Unpleasant ← | → Pleasant |  |
+|  | **Unpleasant ←** |  | **→ Pleasant** |
 |---|---|---|---|
 | **High Arousal** ↑ | Afraid | Tense | Excited | Delighted |
 |  | Frustrated | Angry | Happy | Glad |
