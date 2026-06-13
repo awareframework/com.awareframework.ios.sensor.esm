@@ -4,6 +4,10 @@ import SwiftUI
 /// - `nil` / `0` — one-by-one mode: one question at a time with slide animation and a progress bar.
 /// - `1`         — single-line mode: all questions stacked vertically in a scroll view; one Submit button at the bottom.
 public struct ESMFormView: View {
+    private enum QuestionNavigationDirection {
+        case forward
+        case backward
+    }
 
     let schedule: ESMSchedule
     let notificationTime: Int64
@@ -14,8 +18,30 @@ public struct ESMFormView: View {
     @State private var answers: [String: String] = [:]
     @State private var showUnansweredAlert = false
     @State private var unansweredCount = 0
+    @State private var isNotApplicable = false
+    @State private var currentNotApplicable = false
+    @State private var navigationDirection: QuestionNavigationDirection = .forward
 
     private var isSingleLine: Bool { schedule.interface == 1 }
+    private var submitTitle: String { scheduleTitle(\.esmSubmit, fallback: "Submit") }
+    private var backTitle: String { scheduleTitle(\.esmBack, fallback: "Back") }
+    private var showsNotApplicable: Bool {
+        schedule.esms.contains { ($0.esm.esmNa ?? 0) != 0 }
+    }
+    private var questionTransition: AnyTransition {
+        switch navigationDirection {
+        case .forward:
+            return .asymmetric(
+                insertion: .move(edge: .trailing),
+                removal: .move(edge: .leading)
+            )
+        case .backward:
+            return .asymmetric(
+                insertion: .move(edge: .leading),
+                removal: .move(edge: .trailing)
+            )
+        }
+    }
 
     public init(
         schedule: ESMSchedule,
@@ -73,23 +99,55 @@ public struct ESMFormView: View {
 
     private var oneByOneQuestion: some View {
         let item = schedule.esms[currentIndex].esm
-        let skipValidation = item.esmType == ESMType.web.rawValue
-                         || item.esmType == ESMType.quickAnswer.rawValue
-        return ESMQuestionView(item: item) { answer in
-            if !skipValidation && answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                unansweredCount = 1
-                showUnansweredAlert = true
-                return
+        let key = item.esmTrigger ?? "\(currentIndex)"
+
+        return VStack(spacing: 12) {
+            ESMQuestionView(item: item) { answer in
+                answers[key] = answer
+                if answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                    currentNotApplicable = false
+                }
             }
-            let key = item.esmTrigger ?? "\(currentIndex)"
-            answers[key] = answer
-            advance()
+            .environment(\.esmHideSubmitButton, true)
+
+            if itemAllowsNotApplicable(item) {
+                notApplicableCheckbox(isChecked: $currentNotApplicable)
+                    .padding(.horizontal, 16)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    backFromCurrentQuestion()
+                } label: {
+                    Text(backTitle(for: item))
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    submitCurrentQuestion(item: item, key: key)
+                } label: {
+                    Text(submitTitle(for: item))
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+        }
+        .onAppear {
+            syncCurrentNotApplicable(key: key)
+        }
+        .onChange(of: currentIndex) { _ in
+            let current = schedule.esms[currentIndex].esm
+            syncCurrentNotApplicable(key: current.esmTrigger ?? "\(currentIndex)")
         }
         .id(currentIndex)
-        .transition(.asymmetric(
-            insertion:  .move(edge: .trailing),
-            removal:    .move(edge: .leading)
-        ))
+        .transition(questionTransition)
         .animation(.easeInOut(duration: 0.25), value: currentIndex)
     }
 
@@ -107,10 +165,45 @@ public struct ESMFormView: View {
 
     private func advance() {
         if currentIndex < schedule.esms.count - 1 {
+            navigationDirection = .forward
             withAnimation { currentIndex += 1 }
         } else {
             onCompleted(answers)
         }
+    }
+
+    private func backFromCurrentQuestion() {
+        if currentIndex > 0 {
+            navigationDirection = .backward
+            withAnimation { currentIndex -= 1 }
+        } else {
+            onDismissed()
+        }
+    }
+
+    private func submitCurrentQuestion(item: ESMItem, key: String) {
+        if currentNotApplicable && itemAllowsNotApplicable(item) {
+            answers[key] = "NA"
+            advance()
+            return
+        }
+
+        let answer = answers[key] ?? ""
+        if shouldValidate(item) && answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            unansweredCount = 1
+            showUnansweredAlert = true
+            return
+        }
+
+        advance()
+    }
+
+    private func shouldValidate(_ item: ESMItem) -> Bool {
+        item.esmType != ESMType.web.rawValue
+    }
+
+    private func syncCurrentNotApplicable(key: String) {
+        currentNotApplicable = answers[key] == "NA"
     }
 
     // MARK: - Single-line mode
@@ -131,12 +224,32 @@ public struct ESMFormView: View {
                     )
                 }
 
-                Button("Submit") {
-                    submitAll()
+                if showsNotApplicable {
+                    notApplicableCheckbox(isChecked: $isNotApplicable)
+                    .padding(.top, 4)
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 4)
+
+                HStack(spacing: 12) {
+                    Button {
+                        onDismissed()
+                    } label: {
+                        Text(backTitle)
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        submitAll()
+                    } label: {
+                        Text(submitTitle)
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
                 .padding(.top, 8)
                 .padding(.bottom, 24)
             }
@@ -146,7 +259,68 @@ public struct ESMFormView: View {
         .background(Color(.systemGroupedBackground))
     }
 
+    private func trimmed(_ value: String?, fallback: String) -> String {
+        let text = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? fallback : text
+    }
+
+    private func scheduleTitle(_ keyPath: KeyPath<ESMItem, String?>, fallback: String) -> String {
+        for wrapper in schedule.esms {
+            let text = trimmed(wrapper.esm[keyPath: keyPath], fallback: "")
+            if text.isEmpty == false {
+                return text
+            }
+        }
+        return fallback
+    }
+
+    private func submitTitle(for item: ESMItem) -> String {
+        trimmed(item.esmSubmit, fallback: submitTitle)
+    }
+
+    private func backTitle(for item: ESMItem) -> String {
+        trimmed(item.esmBack, fallback: backTitle)
+    }
+
+    private func itemAllowsNotApplicable(_ item: ESMItem) -> Bool {
+        (item.esmNa ?? 0) != 0
+    }
+
+    private func notApplicableCheckbox(isChecked: Binding<Bool>) -> some View {
+        Button {
+            isChecked.wrappedValue.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isChecked.wrappedValue ? "checkmark.square.fill" : "square")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isChecked.wrappedValue ? Color.accentColor : Color.secondary)
+                Text("NA")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func submitNotApplicable() {
+        for (index, wrapper) in schedule.esms.enumerated() {
+            let key = wrapper.esm.esmTrigger ?? "\(index)"
+            answers[key] = "NA"
+        }
+        onCompleted(answers)
+    }
+
     private func submitAll() {
+        if isNotApplicable {
+            submitNotApplicable()
+            return
+        }
+
         let missing = schedule.esms.enumerated().filter { (index, wrapper) in
             let key = wrapper.esm.esmTrigger ?? "\(index)"
             let answer = answers[key] ?? ""

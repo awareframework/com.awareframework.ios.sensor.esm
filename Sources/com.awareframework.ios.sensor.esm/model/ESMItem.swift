@@ -9,6 +9,7 @@ public struct ESMItem: Codable, Equatable, Sendable {
     public var esmTitle: String?
     public var esmInstructions: String?
     public var esmSubmit: String?
+    public var esmBack: String?
     public var esmTrigger: String?
     public var esmExpirationThreshold: Int?
     public var esmNa: Int?
@@ -56,6 +57,7 @@ public struct ESMItem: Codable, Equatable, Sendable {
         case esmTitle               = "esm_title"
         case esmInstructions        = "esm_instructions"
         case esmSubmit              = "esm_submit"
+        case esmBack                = "esm_back"
         case esmTrigger             = "esm_trigger"
         case esmExpirationThreshold = "esm_expiration_threshold"
         case esmNa                  = "esm_na"
@@ -83,11 +85,12 @@ public struct ESMItem: Codable, Equatable, Sendable {
     }
 
     public init(esmType: Int, esmTitle: String? = nil, esmInstructions: String? = nil,
-                esmSubmit: String? = nil, esmTrigger: String? = nil) {
+                esmSubmit: String? = nil, esmBack: String? = nil, esmTrigger: String? = nil) {
         self.esmType = esmType
         self.esmTitle = esmTitle
         self.esmInstructions = esmInstructions
         self.esmSubmit = esmSubmit
+        self.esmBack = esmBack
         self.esmTrigger = esmTrigger
     }
 }

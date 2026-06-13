@@ -73,6 +73,10 @@ public final class ESMSensor: AwareSensor {
             syncConfig.debug = config.debug
             syncConfig.batchSize = 1000
         }
+        if let sqliteEngine = self.dbEngine as? SQLiteEngine,
+           let instance = sqliteEngine.getSQLiteInstance() {
+            ESMData.createTable(queue: instance)
+        }
         self.esmSubSensor = ESMSubSensor(config)
     }
 
@@ -222,6 +226,11 @@ public final class ESMSensor: AwareSensor {
     // MARK: Private
 
     private func save(_ data: ESMData) {
-        esmSubSensor?.dbEngine?.save([data])
+        let engine = dbEngine ?? esmSubSensor?.dbEngine
+        engine?.save([data]) { error in
+            if let error {
+                print(ESMSensor.TAG, "save error:", error)
+            }
+        }
     }
 }

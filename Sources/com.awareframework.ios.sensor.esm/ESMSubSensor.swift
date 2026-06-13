@@ -4,12 +4,16 @@ import com_awareframework_ios_core
 /// Handles SQLite persistence and server sync for ESMData records.
 public class ESMSubSensor: AwareSensor {
 
+    private static let defaultDbPath = "aware_esm"
+
     public var CONFIG = ESMSensor.Config()
 
     public init(_ config: ESMSensor.Config) {
         super.init()
         self.CONFIG = Self.makeConfig(from: config)
-        self.CONFIG.dbPath = ESMData.databaseTableName
+        if self.CONFIG.dbPath.isEmpty {
+            self.CONFIG.dbPath = Self.defaultDbPath
+        }
         self.CONFIG.dbTableName = ESMData.databaseTableName
         self.initializeDbEngine(config: self.CONFIG)
         super.syncConfig = DbSyncConfig().apply { syncConfig in
@@ -37,7 +41,7 @@ public class ESMSubSensor: AwareSensor {
         CONFIG.studyKey = parentConfig.studyKey
         CONFIG.debug = parentConfig.debug
         CONFIG.label = parentConfig.label
-        CONFIG.dbPath = ESMData.databaseTableName
+        CONFIG.dbPath = parentConfig.dbPath.isEmpty ? Self.defaultDbPath : parentConfig.dbPath
         CONFIG.dbTableName = ESMData.databaseTableName
         initializeDbEngine(config: CONFIG)
 
@@ -83,6 +87,8 @@ public class ESMSubSensor: AwareSensor {
             config.deviceId = source.deviceId
             config.dbEncryptionKey = source.dbEncryptionKey
             config.dbType = source.dbType
+            config.dbPath = source.dbPath
+            config.dbTableName = source.dbTableName
             config.serverType = source.serverType
             config.studyNumber = source.studyNumber
             config.studyKey = source.studyKey
