@@ -160,7 +160,7 @@ public struct ESMAudioView: View {
 
     private var submitButton: some View {
         Button(item.esmSubmit ?? "OK") {
-            onSubmit(recordingURL?.path ?? "")
+            onSubmit(recordingURL.flatMap(encodeAudio) ?? "")
         }
         .buttonStyle(.borderedProminent)
         .disabled(recordingURL == nil)
@@ -217,7 +217,7 @@ public struct ESMAudioView: View {
         stopTicker()
         try? AVAudioSession.sharedInstance().setActive(false)
         if hideSubmitButton, let url = recordingURL {
-            onSubmit(url.path)
+            onSubmit(encodeAudio(url) ?? "")
         }
     }
 
@@ -271,6 +271,11 @@ public struct ESMAudioView: View {
     }
 
     // MARK: - Helpers
+
+    private func encodeAudio(_ url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return data.base64EncodedString()
+    }
 
     private func timeString(_ t: TimeInterval) -> String {
         let total = Int(t)

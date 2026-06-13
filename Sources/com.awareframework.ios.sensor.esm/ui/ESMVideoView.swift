@@ -39,7 +39,7 @@ public struct ESMVideoView: View {
         }
         .onChange(of: videoURL) { newURL in
             if hideSubmitButton, let url = newURL {
-                onSubmit(url.path)
+                onSubmit(encodeVideo(url) ?? "")
             }
         }
     }
@@ -95,12 +95,19 @@ public struct ESMVideoView: View {
 
     private var submitButton: some View {
         Button(item.esmSubmit ?? "OK") {
-            onSubmit(videoURL?.path ?? "")
+            onSubmit(videoURL.flatMap(encodeVideo) ?? "")
         }
         .buttonStyle(.borderedProminent)
         .disabled(videoURL == nil)
         .frame(maxWidth: .infinity)
         .padding(.horizontal)
+    }
+
+    // MARK: - Helpers
+
+    private func encodeVideo(_ url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return data.base64EncodedString()
     }
 }
 
