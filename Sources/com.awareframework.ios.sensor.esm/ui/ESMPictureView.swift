@@ -75,7 +75,7 @@ public struct ESMPictureView: View {
             Button {
                 showPhotoPicker = true
             } label: {
-                Label("ライブラリ", systemImage: "photo.on.rectangle")
+                Label("Library", systemImage: "photo.on.rectangle")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -84,7 +84,7 @@ public struct ESMPictureView: View {
                 Button {
                     showCamera = true
                 } label: {
-                    Label("カメラ", systemImage: "camera")
+                    Label("Camera", systemImage: "camera")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)

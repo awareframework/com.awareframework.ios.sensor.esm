@@ -32,6 +32,7 @@ public struct ESMDateTimeView: View {
             DatePicker("", selection: $selectedDate, displayedComponents: displayedComponents)
                 .datePickerStyle(.wheel)
                 .labelsHidden()
+                .environment(\.locale, Locale(identifier: "en_US_POSIX"))
                 .padding(.horizontal)
                 .onChange(of: selectedDate) { newDate in
                     if hideSubmitButton {

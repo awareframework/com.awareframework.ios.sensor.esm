@@ -101,7 +101,18 @@ public final class ESMScheduleManager: NSObject {
         var cursor    = max(today, startDate)
         var scheduled = 0
 
+        let allowedWeekdays = schedule.allowedWeekdays
+
         while cursor <= endDate && scheduled < maxScheduledNotifications {
+            if let allowed = allowedWeekdays {
+                let weekday = calendar.component(.weekday, from: cursor)
+                guard allowed.contains(weekday) else {
+                    guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+                    cursor = next
+                    continue
+                }
+            }
+
             for hour in schedule.hours {
                 guard scheduled < maxScheduledNotifications else { break }
 

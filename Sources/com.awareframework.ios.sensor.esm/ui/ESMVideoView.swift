@@ -75,7 +75,7 @@ public struct ESMVideoView: View {
             Button {
                 showPhotoPicker = true
             } label: {
-                Label("ライブラリ", systemImage: "photo.on.rectangle")
+                Label("Library", systemImage: "photo.on.rectangle")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -84,7 +84,7 @@ public struct ESMVideoView: View {
                 Button {
                     showCamera = true
                 } label: {
-                    Label("カメラ", systemImage: "video.badge.plus")
+                    Label("Camera", systemImage: "video.badge.plus")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)

@@ -23,6 +23,12 @@ public struct ESMFormView: View {
     @State private var navigationDirection: QuestionNavigationDirection = .forward
 
     private var isSingleLine: Bool { schedule.interface == 1 }
+    private var singlePageWebItem: ESMItem? {
+        guard isSingleLine, schedule.esms.count == 1 else { return nil }
+        let item = schedule.esms[0].esm
+        return item.esmType == ESMType.web.rawValue ? item : nil
+    }
+    private var isSinglePageWebSurvey: Bool { singlePageWebItem != nil }
     private var submitTitle: String { scheduleTitle(\.esmSubmit, fallback: "Submit") }
     private var backTitle: String { scheduleTitle(\.esmBack, fallback: "Back") }
     private var showsNotApplicable: Bool {
@@ -60,6 +66,8 @@ public struct ESMFormView: View {
             VStack(spacing: 0) {
                 if schedule.esms.isEmpty {
                     emptyView
+                } else if isSinglePageWebSurvey {
+                    singlePageWebBody
                 } else if isSingleLine {
                     singleLineBody
                 } else {
@@ -69,12 +77,12 @@ public struct ESMFormView: View {
             }
             .navigationTitle(schedule.notificationTitle)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { dismissButton }
+            .toolbar { toolbarContent }
         }
-        .alert("未入力の項目があります", isPresented: $showUnansweredAlert) {
+        .alert("Missing answers", isPresented: $showUnansweredAlert) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("すべての質問に回答してから送信してください。(\(unansweredCount)件未回答)")
+            Text("Please answer all required questions before submitting. (\(unansweredCount) missing)")
         }
     }
 
@@ -208,6 +216,20 @@ public struct ESMFormView: View {
 
     // MARK: - Single-line mode
 
+    private var singlePageWebBody: some View {
+        let item = singlePageWebItem ?? schedule.esms[0].esm
+        let key = item.esmTrigger ?? "0"
+
+        return ESMWebView(item: item, fillsAvailableSpace: true) { answer in
+            answers[key] = answer
+        }
+        .environment(\.esmHideSubmitButton, true)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            answers[key] = answers[key] ?? "completed"
+        }
+    }
+
     private var singleLineBody: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
@@ -338,10 +360,30 @@ public struct ESMFormView: View {
 
     // MARK: - Toolbar
 
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        dismissButton
+        if let item = singlePageWebItem {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(submitTitle(for: item)) {
+                    submitSinglePageWebSurvey(item: item)
+                }
+            }
+        }
+    }
+
     private var dismissButton: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("Dismiss", role: .cancel) { onDismissed() }
         }
+    }
+
+    private func submitSinglePageWebSurvey(item: ESMItem) {
+        let key = item.esmTrigger ?? "0"
+        if answers[key]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
+            answers[key] = "completed"
+        }
+        onCompleted(answers)
     }
 }
 

@@ -5,15 +5,29 @@ public struct ESMWebView: View {
 
     let item: ESMItem
     let onSubmit: (String) -> Void
+    let fillsAvailableSpace: Bool
 
     @Environment(\.esmHideSubmitButton) private var hideSubmitButton
 
-    public init(item: ESMItem, onSubmit: @escaping (String) -> Void) {
+    public init(
+        item: ESMItem,
+        fillsAvailableSpace: Bool = false,
+        onSubmit: @escaping (String) -> Void
+    ) {
         self.item = item
+        self.fillsAvailableSpace = fillsAvailableSpace
         self.onSubmit = onSubmit
     }
 
     public var body: some View {
+        if fillsAvailableSpace {
+            fullScreenBody
+        } else {
+            standardBody
+        }
+    }
+
+    private var standardBody: some View {
         VStack(spacing: 12) {
             if let urlString = item.esmUrl, let url = URL(string: urlString) {
                 ESMWKWebView(url: url)
@@ -40,6 +54,28 @@ public struct ESMWebView: View {
                 .padding(.horizontal)
             }
         }
+        .onAppear {
+            if hideSubmitButton { onSubmit("completed") }
+        }
+    }
+
+    private var fullScreenBody: some View {
+        Group {
+            if let urlString = item.esmUrl, let url = URL(string: urlString) {
+                ESMWKWebView(url: url)
+            } else {
+                VStack(spacing: 12) {
+                    Image(systemName: "link.badge.plus")
+                        .font(.system(size: 40))
+                        .foregroundStyle(.secondary)
+                    Text("Invalid URL")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
         .onAppear {
             if hideSubmitButton { onSubmit("completed") }
         }

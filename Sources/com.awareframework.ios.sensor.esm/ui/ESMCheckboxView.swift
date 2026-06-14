@@ -32,7 +32,7 @@ public struct ESMCheckboxView: View {
     }
 
     private func isOtherOption(_ option: String) -> Bool {
-        option.lowercased() == "other" || option == "その他"
+        option.lowercased() == "other" || option == "\u{305D}\u{306E}\u{4ED6}"
     }
 
     private func checkboxRow(_ option: String) -> some View {
@@ -59,7 +59,7 @@ public struct ESMCheckboxView: View {
             }
 
             if isOtherOption(option) && selected.contains(option) {
-                TextField("詳細を入力...", text: $otherText)
+                TextField("Enter details...", text: $otherText)
                     .textFieldStyle(.roundedBorder)
                     .padding(.horizontal, 4)
                     .onChange(of: otherText) { _ in
