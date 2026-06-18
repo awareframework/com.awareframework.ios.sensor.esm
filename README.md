@@ -25,30 +25,30 @@ You can integrate this framework into your project via Swift Package Manager (Sw
 import com_awareframework_ios_sensor_esm
 ```
 
-## Public functions
+## Public Functions
 
 ### ESMSensor
 
-* `init(_ config: ESMSensor.Config)` : Initializes the ESM sensor with the optional configuration.
-* `start()` : Requests local notification permission and posts the ESM start notification.
-* `stop()` : Posts the ESM stop notification.
-* `sync(force:)` : Syncs stored ESM response records.
-* `loadSchedules(from jsonString: String)` : Loads schedule JSON from a string and activates local notifications.
-* `loadSchedules(from data: Data)` : Loads schedule JSON from raw data.
-* `loadSchedules(from url: URL)` : Loads schedule JSON from a local file URL.
-* `submitAnswer(item:scheduleId:answer:notificationTime:)` : Saves an answered ESM item.
-* `dismissESM(item:scheduleId:notificationTime:)` : Saves a dismissed ESM item.
-* `expireESM(item:scheduleId:notificationTime:)` : Saves an expired ESM item.
++ `init(_ config: ESMSensor.Config)`: Initializes the ESM sensor with the optional configuration.
++ `start()`: Requests local notification permission and posts the ESM start notification.
++ `stop()`: Posts the ESM stop notification.
++ `sync(force:)`: Syncs stored ESM response records.
++ `loadSchedules(from jsonString: String)`: Loads schedule JSON from a string and activates local notifications.
++ `loadSchedules(from data: Data)`: Loads schedule JSON from raw data.
++ `loadSchedules(from url: URL)`: Loads schedule JSON from a local file URL.
++ `submitAnswer(item:scheduleId:answer:notificationTime:)`: Saves an answered ESM item.
++ `dismissESM(item:scheduleId:notificationTime:)`: Saves a dismissed ESM item.
++ `expireESM(item:scheduleId:notificationTime:)`: Saves an expired ESM item.
 
 ### ESMScheduleManager
 
-* `loadSchedules(from:)` : Parses and activates ESM schedules.
-* `activateSchedules(_:)` : Replaces the current schedule set and reschedules notifications.
-* `activeSchedules()` : Returns schedules that are currently within their start and end date window.
-* `loadedSchedules()` : Returns all persisted schedules.
-* `clearSchedules()` : Removes persisted schedules and pending ESM notifications.
-* `requestPermission(completion:)` : Requests local notification permission.
-* `schedule(from:)` : Resolves a notification payload to an active, non-expired schedule.
++ `loadSchedules(from:)`: Parses and activates ESM schedules.
++ `activateSchedules(_:)`: Replaces the current schedule set and reschedules notifications.
++ `activeSchedules()`: Returns schedules that are currently within their start and end date window.
++ `loadedSchedules()`: Returns all persisted schedules.
++ `clearSchedules()`: Removes persisted schedules and pending ESM notifications.
++ `requestPermission(completion:)`: Requests local notification permission.
++ `schedule(from:)`: Resolves a notification payload to an active, non-expired schedule.
 
 ### ESMSensor.Config
 
@@ -56,14 +56,14 @@ Class to hold the configuration of the sensor.
 
 #### Fields
 
-* `sensorObserver: ESMSensorObserver?` : Callback for schedule and response events.
-* `enabled: Bool` : Sensor is enabled or not. (default = `false`)
-* `debug: Bool` : Enables or disables logging to the Xcode console. (default = `false`)
-* `label: String` : Label for the data. (default = "")
-* `deviceId: String` : Device ID associated with events and the sensor.
-* `dbType: Engine.DatabaseType` : Database engine used for saving data.
-* `dbPath: String` : Path of the database.
-* `dbHost: String` : Host for syncing the database.
++ `sensorObserver: ESMSensorObserver?`: Callback for schedule and response events.
++ `enabled: Bool`: Sensor is enabled or not. (default = `false`)
++ `debug: Bool`: Enables or disables logging to the Xcode console. (default = `false`)
++ `label: String`: Label for the data. (default = `""`)
++ `deviceId: String`: Device ID associated with events and the sensor.
++ `dbType: DatabaseType`: Database engine used for saving data.
++ `dbPath: String`: Path of the database.
++ `dbHost: String?`: Host for syncing the database.
 
 ## Supported ESM types
 
@@ -128,13 +128,13 @@ A complete all-types sample is available at `Examples/esm_all_types_sample.json`
 
 ### Fired Broadcasts
 
-* `ESMSensor.ACTION_AWARE_ESM_START` fired when the ESM sensor starts.
-* `ESMSensor.ACTION_AWARE_ESM_STOP` fired when the ESM sensor stops.
-* `ESMSensor.ACTION_AWARE_ESM_ANSWERED` fired when an ESM response is saved.
-* `ESMSensor.ACTION_AWARE_ESM_DISMISSED` fired when an ESM item is dismissed.
-* `ESMSensor.ACTION_AWARE_ESM_EXPIRED` fired when an ESM item expires.
-* `ESMSensor.ACTION_AWARE_ESM_SYNC` fired when ESM data sync starts.
-* `ESMSensor.ACTION_AWARE_ESM_SYNC_COMPLETION` fired when ESM data sync completes.
++ `ESMSensor.ACTION_AWARE_ESM_START`: fired when the ESM sensor starts.
++ `ESMSensor.ACTION_AWARE_ESM_STOP`: fired when the ESM sensor stops.
++ `ESMSensor.ACTION_AWARE_ESM_ANSWERED`: fired when an ESM response is saved.
++ `ESMSensor.ACTION_AWARE_ESM_DISMISSED`: fired when an ESM item is dismissed.
++ `ESMSensor.ACTION_AWARE_ESM_EXPIRED`: fired when an ESM item expires.
++ `ESMSensor.ACTION_AWARE_ESM_SYNC`: fired when ESM data sync starts.
++ `ESMSensor.ACTION_AWARE_ESM_SYNC_COMPLETION`: fired when ESM data sync completes.
 
 ## Data Representations
 
@@ -159,7 +159,7 @@ A complete all-types sample is available at `Examples/esm_all_types_sample.json`
 | esmStatus | Int | `0=new`, `1=answered`, `2=dismissed`, `3=expired` |
 | esmNotificationTime | Int64 | Unix time in milliseconds when the notification fired |
 
-## Example usage
+## Example Usage
 
 ```swift
 let sensor = ESMSensor(ESMSensor.Config().apply { config in
