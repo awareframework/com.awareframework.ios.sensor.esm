@@ -253,6 +253,15 @@ The 16 affect categories are arranged as follows:
 > Pollak, J. P., Adams, P., & Gay, G. (2011). PAM: a photographic affect meter for frequent, in situ measurement of affect. In *Proceedings of the SIGCHI Conference on Human Factors in Computing Systems* (CHI '11), pp. 725–734. ACM.
 > https://dl.acm.org/doi/10.1145/1978942.1979047
 
+## Related Links
+
+- [UserNotifications | Apple Developer Documentation](https://developer.apple.com/documentation/usernotifications)
+- [SwiftUI | Apple Developer Documentation](https://developer.apple.com/documentation/swiftui)
+- [PhotosUI | Apple Developer Documentation](https://developer.apple.com/documentation/photosui)
+- [AVFoundation | Apple Developer Documentation](https://developer.apple.com/documentation/avfoundation)
+- [AVKit | Apple Developer Documentation](https://developer.apple.com/documentation/avkit)
+- [WebKit | Apple Developer Documentation](https://developer.apple.com/documentation/webkit)
+
 ## Author
 
 Yuuki Nishiyama (The University of Tokyo), nishiyama@csis.u-tokyo.ac.jp
