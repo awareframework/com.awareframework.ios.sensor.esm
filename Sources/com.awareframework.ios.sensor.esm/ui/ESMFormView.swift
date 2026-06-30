@@ -137,12 +137,11 @@ public struct ESMFormView: View {
                 Button {
                     submitCurrentQuestion(item: item, key: key)
                 } label: {
-                    Text(submitTitle(for: item))
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
+                    primarySubmitLabel(submitTitle(for: item))
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .shadow(color: Color.accentColor.opacity(0.22), radius: 5, x: 0, y: 3)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
@@ -265,12 +264,11 @@ public struct ESMFormView: View {
                     Button {
                         submitAll()
                     } label: {
-                        Text(submitTitle)
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 4)
+                        primarySubmitLabel(submitTitle)
                     }
                     .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .shadow(color: Color.accentColor.opacity(0.22), radius: 5, x: 0, y: 3)
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 24)
@@ -306,6 +304,18 @@ public struct ESMFormView: View {
 
     private func itemAllowsNotApplicable(_ item: ESMItem) -> Bool {
         (item.esmNa ?? 0) != 0
+    }
+
+    private func primarySubmitLabel(_ title: String) -> some View {
+        Label {
+            Text(title)
+                .font(.headline.weight(.semibold))
+        } icon: {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.headline)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 7)
     }
 
     private func notApplicableCheckbox(isChecked: Binding<Bool>) -> some View {
