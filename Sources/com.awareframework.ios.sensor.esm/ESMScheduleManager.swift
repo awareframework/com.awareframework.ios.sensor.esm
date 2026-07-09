@@ -53,6 +53,62 @@ public final class ESMScheduleManager: NSObject {
         activateSchedules(schedules)
     }
 
+    /// Fetch and activate schedules from a remote JSON URL.
+    public func loadSchedules(
+        fromRemoteURL url: URL,
+        completion: @escaping (Result<[ESMSchedule], Error>) -> Void
+    ) {
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" || scheme == "http" else {
+            completion(.failure(Self.makeLoadError("URL must use http or https")))
+            return
+        }
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            if let error {
+                DispatchQueue.main.async { completion(.failure(error)) }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse,
+               !(200...299).contains(httpResponse.statusCode) {
+                DispatchQueue.main.async {
+                    completion(.failure(Self.makeLoadError("HTTP \(httpResponse.statusCode)")))
+                }
+                return
+            }
+
+            guard let self, let data else {
+                DispatchQueue.main.async {
+                    completion(.failure(Self.makeLoadError("No data received")))
+                }
+                return
+            }
+
+            do {
+                let schedules = try ESMSchedule.parse(from: data)
+                DispatchQueue.main.async {
+                    self.activateSchedules(schedules)
+                    completion(.success(schedules))
+                }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }.resume()
+    }
+
+    /// Fetch and activate schedules from a remote JSON URL string.
+    public func loadSchedules(
+        fromRemoteURLString urlString: String,
+        completion: @escaping (Result<[ESMSchedule], Error>) -> Void
+    ) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else {
+            completion(.failure(Self.makeLoadError("Invalid URL")))
+            return
+        }
+        loadSchedules(fromRemoteURL: url, completion: completion)
+    }
+
     /// Replace current schedules with the given array and reschedule notifications.
     public func activateSchedules(_ schedules: [ESMSchedule]) {
         persist(schedules: schedules)
@@ -218,5 +274,13 @@ public final class ESMScheduleManager: NSObject {
             options: []
         )
         notificationCenter.setNotificationCategories([category])
+    }
+
+    private static func makeLoadError(_ message: String) -> NSError {
+        NSError(
+            domain: "ESM",
+            code: 0,
+            userInfo: [NSLocalizedDescriptionKey: message]
+        )
     }
 }

@@ -146,6 +146,32 @@ public final class ESMSensor: AwareSensor {
         CONFIG.sensorObserver?.onScheduleLoaded(schedules: schedules)
     }
 
+    /// Fetch ESM schedule JSON from a remote URL and schedule local notifications.
+    public func loadSchedules(
+        fromRemoteURL url: URL,
+        completion: @escaping (Result<[ESMSchedule], Error>) -> Void
+    ) {
+        ESMScheduleManager.shared.loadSchedules(fromRemoteURL: url) { [weak self] result in
+            if case .success(let schedules) = result {
+                self?.CONFIG.sensorObserver?.onScheduleLoaded(schedules: schedules)
+            }
+            completion(result)
+        }
+    }
+
+    /// Fetch ESM schedule JSON from a remote URL string and schedule local notifications.
+    public func loadSchedules(
+        fromRemoteURLString urlString: String,
+        completion: @escaping (Result<[ESMSchedule], Error>) -> Void
+    ) {
+        let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else {
+            completion(.failure(Self.makeScheduleLoadError("Invalid URL")))
+            return
+        }
+        loadSchedules(fromRemoteURL: url, completion: completion)
+    }
+
     // MARK: Responding to ESMs
 
     /// Save a user's answer for one ESM question.
@@ -233,4 +259,13 @@ public final class ESMSensor: AwareSensor {
             }
         }
     }
+
+    private static func makeScheduleLoadError(_ message: String) -> NSError {
+        NSError(
+            domain: "ESM",
+            code: 0,
+            userInfo: [NSLocalizedDescriptionKey: message]
+        )
+    }
+
 }
