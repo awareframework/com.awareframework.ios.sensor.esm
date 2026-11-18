@@ -8,22 +8,15 @@
 iOS 16 or later.
 
 ## Installation
+Add the package with Swift Package Manager:
 
-You can integrate this framework into your project via Swift Package Manager (SwiftPM).
+- Package URL: `https://github.com/awareframework/com.awareframework.ios.sensor.esm.git`
+- Product: `com.awareframework.ios.sensor.esm`
+- Module: `import com_awareframework_ios_sensor_esm`
 
-### SwiftPM
-1. Open Package Manager Windows
-    * Open `Xcode` -> Select `Menu Bar` -> `File` -> `App Package Dependencies...`
+See the [core package README](https://github.com/awareframework/com.awareframework.ios.core#installation) for the Xcode, `Package.swift` and command-line installation steps.
 
-2. Find the package using the manager
-    * Select `Search Package URL` and type `git@github.com:awareframework/com.awareframework.ios.sensor.esm.git`
-
-3. Import the package into your target.
-
-4. Import the library into your source code.
-```swift
-import com_awareframework_ios_sensor_esm
-```
+**Info.plist:** local notifications need no usage description. Only the media question types do: `NSCameraUsageDescription` for Picture (14) and Video (16), and `NSMicrophoneUsageDescription` for Audio (15) and Video.
 
 ## Public Functions
 
@@ -124,6 +117,32 @@ The schedule JSON is an array of schedule objects. Dates use `MM-dd-yyyy` format
 
 A complete all-types sample is available at `Examples/esm_all_types_sample.json`.
 
+### Schedule fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `schedule_id` | String | yes | Unique ID. Stored with each answer (`scheduleId`) and in the notification. |
+| `hours` | [Int] | yes | Hours of the day (0–23) at which to notify, at minute 0. `[9, 13, 19]` notifies three times a day. |
+| `start_date`, `end_date` | String | yes | First and last day of the schedule, `MM-dd-yyyy`. The schedule notifies on every day in this range (see `weekdays`). |
+| `expiration` | Int | yes | Minutes after the notification during which the survey can be answered. `0` means no limit. |
+| `randomize` | Int | yes | Random offset of ± this many minutes added to each notification time. `0` means exact times. |
+| `weekdays` | [String] | no | Days to notify on, e.g. `["Monday", "Friday"]`. Omit for every day. |
+| `notification_title`, `notification_body` | String | yes | Notification text. |
+| `interface` | Int | no | `0` or omitted: one question per page. `1`: all questions on one scrolling page. |
+| `esms` | Array | yes | Questions, each wrapped as `{"esm": {...}}`. |
+
+### Common question fields
+
+| Field | Description |
+|---|---|
+| `esm_type` | Question type (see [Supported ESM types](#supported-esm-types)). |
+| `esm_trigger` | Question ID. `ESMFormView` returns answers keyed by this value, so make it unique within a schedule. |
+| `esm_title`, `esm_instructions` | Question text. |
+| `esm_submit` | Label of the submit button. (default = `"Submit"`) |
+| `esm_na` | Non-zero shows a "Not applicable" option. |
+
+Likert answers are the selected value as a string, from `"1"` to `esm_likert_max` in steps of `esm_likert_step`.
+
 ## Broadcasts
 
 ### Fired Broadcasts
@@ -196,38 +215,118 @@ class Observer: ESMSensorObserver {
 }
 ```
 
-### Presenting an ESM form
+## How notifications are scheduled
 
-The package includes SwiftUI views for supported ESM item types and `ESMFormView` for rendering a full schedule.
+- `loadSchedules(...)` stores the schedules (in `UserDefaults`), cancels pending ESM notifications, and schedules **one-shot** local notifications for every day and hour from today until `end_date`.
+- iOS keeps at most 64 pending notifications, so the package schedules at most **56** ahead. With three notifications a day this covers about 18 days. **Call `loadSchedules` again at every app launch** to schedule the following days.
+- Each notification carries `scheduleId` and `notificationTime` (Unix time in milliseconds) in `userInfo`, and offers *Answer* and *Dismiss* actions.
+- `ESMScheduleManager.shared.schedule(from: userInfo)` returns the schedule for a notification, or `nil` once `expiration` minutes have passed or the schedule has ended.
+- Expiration is not recorded automatically. Call `expireESM(...)` if you want expired surveys in the data.
+
+## Showing the survey
+
+Set a `UNUserNotificationCenter` delegate before the app finishes launching, so that a tap that launches the app is delivered. Then present `ESMFormView` for the tapped notification:
 
 ```swift
-ESMFormView(
-    schedule: schedule,
-    notificationTime: notificationTime,
-    onCompleted: { answers in
-        for (trigger, answer) in answers {
-            let item = schedule.esms.first { $0.esm.esmTrigger == trigger }?.esm
-            if let item {
-                sensor.submitAnswer(
-                    item: item,
-                    scheduleId: schedule.scheduleId,
-                    answer: answer,
-                    notificationTime: notificationTime
-                )
-            }
+import SwiftUI
+import UserNotifications
+import com_awareframework_ios_sensor_esm
+
+struct PendingESM: Identifiable {
+    let schedule: ESMSchedule
+    let notificationTime: Int64
+    var id: String { "\(schedule.scheduleId)-\(notificationTime)" }
+}
+
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, ObservableObject {
+    @Published var pending: PendingESM?
+
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    // Show the notification while the app is in the foreground.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+
+    // The participant tapped the notification or its Answer action.
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        let userInfo = response.notification.request.content.userInfo
+        if response.actionIdentifier != ESMScheduleManager.actionDismiss,
+           let schedule = ESMScheduleManager.shared.schedule(from: userInfo) {
+            let time = userInfo["notificationTime"] as? Int64 ?? 0
+            DispatchQueue.main.async { self.pending = PendingESM(schedule: schedule, notificationTime: time) }
         }
-    },
-    onDismissed: {
-        for wrapper in schedule.esms {
-            sensor.dismissESM(
-                item: wrapper.esm,
-                scheduleId: schedule.scheduleId,
-                notificationTime: notificationTime
-            )
+        completionHandler()
+    }
+}
+
+@main
+struct StudyApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    let esm = ESMSensor(ESMSensor.Config())
+
+    init() {
+        esm.start()   // requests notification permission
+        if let url = Bundle.main.url(forResource: "esm_schedule", withExtension: "json") {
+            try? esm.loadSchedules(from: url)   // at every launch, to schedule the next days
         }
     }
-)
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .sheet(item: $appDelegate.pending) { p in
+                    ESMFormView(
+                        schedule: p.schedule,
+                        notificationTime: p.notificationTime,
+                        onCompleted: { answers in            // [esm_trigger: answer]
+                            for wrapper in p.schedule.esms {
+                                guard let trigger = wrapper.esm.esmTrigger, let answer = answers[trigger] else { continue }
+                                esm.submitAnswer(item: wrapper.esm, scheduleId: p.schedule.scheduleId,
+                                                 answer: answer, notificationTime: p.notificationTime)
+                            }
+                            appDelegate.pending = nil
+                        },
+                        onDismissed: {
+                            for wrapper in p.schedule.esms {
+                                esm.dismissESM(item: wrapper.esm, scheduleId: p.schedule.scheduleId,
+                                               notificationTime: p.notificationTime)
+                            }
+                            appDelegate.pending = nil
+                        }
+                    )
+                }
+        }
+    }
+}
 ```
+
+To also offer the survey when the participant opens the app without tapping the notification, look for a delivered notification that has not expired yet:
+
+```swift
+UNUserNotificationCenter.current().getDeliveredNotifications { notifications in
+    let latest = notifications
+        .filter { $0.request.content.categoryIdentifier == ESMScheduleManager.notificationCategoryIdentifier }
+        .sorted { $0.date > $1.date }
+        .first
+    guard let userInfo = latest?.request.content.userInfo,
+          let schedule = ESMScheduleManager.shared.schedule(from: userInfo) else { return }
+    let time = userInfo["notificationTime"] as? Int64 ?? 0
+    DispatchQueue.main.async { appDelegate.pending = PendingESM(schedule: schedule, notificationTime: time) }
+}
+```
+
+## Storage and sync
+
+- Answers, dismissals and expirations are saved as `ESMData` rows in the `ios_esm` table of the `aware_esm` database.
+- Unlike most sensor packages, `ESMSensor` uploads with the `serverType`, `studyNumber` and `studyKey` of its own `ESMSensor.Config`, so set them there together with `dbHost`.
+- To include ESM in periodic sync, call `esm.enable()` (or register it with `SensorManager` and call `enableAllSensors()`), then start a `DbSyncManager`. See the [core package README](https://github.com/awareframework/com.awareframework.ios.core#dbsyncmanager-reference) for sync settings and guarantees.
 
 ## PAM (Photographic Affect Meter)
 
