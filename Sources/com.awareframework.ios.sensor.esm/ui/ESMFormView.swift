@@ -3,6 +3,12 @@ import SwiftUI
 /// Presents ESM questions in one of two layouts driven by `schedule.interface`:
 /// - `nil` / `0` — one-by-one mode: one question at a time with slide animation and a progress bar.
 /// - `1`         — single-line mode: all questions stacked vertically in a scroll view; one Submit button at the bottom.
+///
+/// Questions with `esm_flows` add the questions their answer selects right after them (see `ESMFlow`).
+/// In one-by-one mode they come next; in single-line mode they appear below the question as soon as
+/// it is answered. Changing an answer removes the questions of the branch it no longer selects, and
+/// their answers are not passed to `onCompleted`. Use `ESMSensor.submitAnswers(schedule:answers:notificationTime:)`
+/// to save the answers of all questions, including those of the branches.
 public struct ESMFormView: View {
     private enum QuestionNavigationDirection {
         case forward
@@ -23,6 +29,8 @@ public struct ESMFormView: View {
     @State private var navigationDirection: QuestionNavigationDirection = .forward
 
     private var isSingleLine: Bool { schedule.interface == 1 }
+    /// The questions to show for the current answers (the schedule's questions and their branches)
+    private var entries: [ESMSurveyEntry] { schedule.surveyEntries(answers: answers) }
     private var singlePageWebItem: ESMItem? {
         guard isSingleLine, schedule.esms.count == 1 else { return nil }
         let item = schedule.esms[0].esm
@@ -106,8 +114,10 @@ public struct ESMFormView: View {
     // MARK: - One-by-one mode
 
     private var oneByOneQuestion: some View {
-        let item = schedule.esms[currentIndex].esm
-        let key = item.esmTrigger ?? "\(currentIndex)"
+        let list = entries
+        let entry = list[min(currentIndex, list.count - 1)]
+        let item = entry.item
+        let key = entry.key
 
         return VStack(spacing: 12) {
             ESMQuestionView(item: item) { answer in
@@ -150,20 +160,20 @@ public struct ESMFormView: View {
             syncCurrentNotApplicable(key: key)
         }
         .onChange(of: currentIndex) { _ in
-            let current = schedule.esms[currentIndex].esm
-            syncCurrentNotApplicable(key: current.esmTrigger ?? "\(currentIndex)")
+            let list = entries
+            syncCurrentNotApplicable(key: list[min(currentIndex, list.count - 1)].key)
         }
-        .id(currentIndex)
+        .id(key)
         .transition(questionTransition)
         .animation(.easeInOut(duration: 0.25), value: currentIndex)
     }
 
     private var progressFooter: some View {
         VStack(spacing: 4) {
-            ProgressView(value: Double(currentIndex + 1), total: Double(schedule.esms.count))
+            ProgressView(value: Double(currentIndex + 1), total: Double(max(entries.count, 1)))
                 .progressViewStyle(.linear)
                 .padding(.horizontal)
-            Text("\(currentIndex + 1) of \(schedule.esms.count)")
+            Text("\(currentIndex + 1) of \(entries.count)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 8)
@@ -171,12 +181,20 @@ public struct ESMFormView: View {
     }
 
     private func advance() {
-        if currentIndex < schedule.esms.count - 1 {
+        // The list is read after the current answer was stored, so the questions it selected come next
+        if currentIndex < entries.count - 1 {
             navigationDirection = .forward
             withAnimation { currentIndex += 1 }
         } else {
-            onCompleted(answers)
+            complete()
         }
+    }
+
+    /// Pass the answers of the questions that are part of the survey (answers to questions of a
+    /// branch that a changed answer no longer selects are dropped).
+    private func complete() {
+        let keys = Set(entries.map(\.key))
+        onCompleted(answers.filter { keys.contains($0.key) })
     }
 
     private func backFromCurrentQuestion() {
@@ -232,15 +250,15 @@ public struct ESMFormView: View {
     private var singleLineBody: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                ForEach(schedule.esms.indices, id: \.self) { index in
-                    let wrapper = schedule.esms[index]
+                let list = entries
+                ForEach(Array(list.enumerated()), id: \.element.key) { index, entry in
                     SingleLineQuestionRow(
                         index: index,
-                        total: schedule.esms.count,
-                        item: wrapper.esm,
+                        total: list.count,
+                        item: entry.item,
+                        depth: entry.depth,
                         onAnswer: { answer in
-                            let key = wrapper.esm.esmTrigger ?? "\(index)"
-                            answers[key] = answer
+                            answers[entry.key] = answer
                         }
                     )
                 }
@@ -340,11 +358,11 @@ public struct ESMFormView: View {
     }
 
     private func submitNotApplicable() {
-        for (index, wrapper) in schedule.esms.enumerated() {
-            let key = wrapper.esm.esmTrigger ?? "\(index)"
-            answers[key] = "NA"
+        // "NA" selects no branch, so only the schedule's own questions remain
+        for entry in entries where entry.depth == 0 {
+            answers[entry.key] = ESMFlow.notApplicable
         }
-        onCompleted(answers)
+        complete()
     }
 
     private func submitAll() {
@@ -353,9 +371,8 @@ public struct ESMFormView: View {
             return
         }
 
-        let missing = schedule.esms.enumerated().filter { (index, wrapper) in
-            let key = wrapper.esm.esmTrigger ?? "\(index)"
-            let answer = answers[key] ?? ""
+        let missing = entries.filter { entry in
+            let answer = answers[entry.key] ?? ""
             return answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
 
@@ -365,7 +382,7 @@ public struct ESMFormView: View {
             return
         }
 
-        onCompleted(answers)
+        complete()
     }
 
     // MARK: - Toolbar
@@ -393,7 +410,7 @@ public struct ESMFormView: View {
         if answers[key]?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true {
             answers[key] = "completed"
         }
-        onCompleted(answers)
+        complete()
     }
 }
 
@@ -403,6 +420,8 @@ private struct SingleLineQuestionRow: View {
     let index: Int
     let total: Int
     let item: ESMItem
+    /// 0 for a question of the schedule, 1 or more for a question selected by an answer (esm_flows)
+    var depth: Int = 0
     let onAnswer: (String) -> Void
 
     var body: some View {
@@ -434,5 +453,7 @@ private struct SingleLineQuestionRow: View {
         .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+        // A question selected by an earlier answer is indented below it
+        .padding(.leading, CGFloat(min(depth, 3)) * 16)
     }
 }

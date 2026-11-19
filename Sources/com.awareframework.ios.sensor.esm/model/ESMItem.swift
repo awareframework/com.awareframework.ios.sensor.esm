@@ -50,6 +50,11 @@ public struct ESMItem: Codable, Equatable, Sendable {
 
     public var esmCamera: Int?
 
+    // MARK: Branches
+
+    /// Questions to ask next, chosen by this question's answer (`esm_flows`). See `ESMFlow`.
+    public var esmFlows: [ESMFlow]?
+
     // MARK: CodingKeys — maps Swift camelCase to JSON snake_case
 
     public enum CodingKeys: String, CodingKey {
@@ -76,6 +81,7 @@ public struct ESMItem: Codable, Equatable, Sendable {
         case esmScaleStep           = "esm_scale_step"
         case esmUrl                 = "esm_url"
         case esmCamera              = "esm_camera"
+        case esmFlows               = "esm_flows"
     }
 
     // MARK: Convenience
@@ -92,6 +98,55 @@ public struct ESMItem: Codable, Equatable, Sendable {
         self.esmSubmit = esmSubmit
         self.esmBack = esmBack
         self.esmTrigger = esmTrigger
+    }
+}
+
+// MARK: - Decoding
+
+extension ESMItem {
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        esmType                = try c.decode(Int.self, forKey: .esmType)
+        esmTitle               = try c.decodeIfPresent(String.self, forKey: .esmTitle)
+        esmInstructions        = try c.decodeIfPresent(String.self, forKey: .esmInstructions)
+        esmSubmit              = try c.decodeIfPresent(String.self, forKey: .esmSubmit)
+        esmBack                = try c.decodeIfPresent(String.self, forKey: .esmBack)
+        esmTrigger             = try c.decodeIfPresent(String.self, forKey: .esmTrigger)
+        esmExpirationThreshold = try c.decodeIfPresent(Int.self, forKey: .esmExpirationThreshold)
+        esmNa                  = try c.decodeIfPresent(Int.self, forKey: .esmNa)
+        esmRadios              = try c.decodeIfPresent([String].self, forKey: .esmRadios)
+        esmCheckboxes          = try c.decodeIfPresent([String].self, forKey: .esmCheckboxes)
+        esmLikertMax           = try c.decodeIfPresent(Int.self, forKey: .esmLikertMax)
+        esmLikertMaxLabel      = try c.decodeIfPresent(String.self, forKey: .esmLikertMaxLabel)
+        esmLikertMinLabel      = try c.decodeIfPresent(String.self, forKey: .esmLikertMinLabel)
+        esmLikertStep          = try c.decodeIfPresent(Int.self, forKey: .esmLikertStep)
+        esmQuickAnswers        = try c.decodeIfPresent([String].self, forKey: .esmQuickAnswers)
+        esmScaleMax            = try c.decodeIfPresent(Int.self, forKey: .esmScaleMax)
+        esmScaleMin            = try c.decodeIfPresent(Int.self, forKey: .esmScaleMin)
+        esmScaleStart          = try c.decodeIfPresent(Int.self, forKey: .esmScaleStart)
+        esmScaleMaxLabel       = try c.decodeIfPresent(String.self, forKey: .esmScaleMaxLabel)
+        esmScaleMinLabel       = try c.decodeIfPresent(String.self, forKey: .esmScaleMinLabel)
+        esmScaleStep           = try c.decodeIfPresent(Int.self, forKey: .esmScaleStep)
+        esmUrl                 = try c.decodeIfPresent(String.self, forKey: .esmUrl)
+        esmCamera              = try c.decodeIfPresent(Int.self, forKey: .esmCamera)
+        esmFlows               = try ESMItem.decodeFlows(c)
+    }
+
+    /// `esm_flows` is an array of flows. AWAREFramework (v2) stored it as a JSON string holding that
+    /// array, so a string is accepted too; an empty string means no flows.
+    private static func decodeFlows(_ c: KeyedDecodingContainer<CodingKeys>) throws -> [ESMFlow]? {
+        guard c.contains(.esmFlows), try c.decodeNil(forKey: .esmFlows) == false else { return nil }
+        if let flows = try? c.decode([ESMFlow].self, forKey: .esmFlows) {
+            return flows.isEmpty ? nil : flows
+        }
+        let text = try c.decode(String.self, forKey: .esmFlows).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.isEmpty == false else { return nil }
+        guard let data = text.data(using: .utf8) else {
+            throw DecodingError.dataCorruptedError(forKey: .esmFlows, in: c, debugDescription: "Invalid esm_flows")
+        }
+        let flows = try JSONDecoder().decode([ESMFlow].self, from: data)
+        return flows.isEmpty ? nil : flows
     }
 }
 
