@@ -7,6 +7,8 @@ public struct ESMNumericView: View {
 
     @State private var text = ""
     @Environment(\.esmHideSubmitButton) private var hideSubmitButton
+    @Environment(\.esmInitialAnswer) private var initialAnswer
+    @State private var restored = false
 
     public init(item: ESMItem, onSubmit: @escaping (String) -> Void) {
         self.item = item
@@ -23,6 +25,12 @@ public struct ESMNumericView: View {
                 .padding(.horizontal)
                 .onChange(of: text) { newValue in
                     if hideSubmitButton { onSubmit(newValue) }
+                }
+                .onAppear {
+                    // Show the earlier answer
+                    guard !restored else { return }
+                    restored = true
+                    if let answer = initialAnswer, Double(answer) != nil { text = answer }
                 }
 
             if !hideSubmitButton {

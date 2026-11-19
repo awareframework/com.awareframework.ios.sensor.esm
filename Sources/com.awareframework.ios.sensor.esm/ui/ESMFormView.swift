@@ -127,6 +127,8 @@ public struct ESMFormView: View {
                 }
             }
             .environment(\.esmHideSubmitButton, true)
+            // Going back to a question shows the answer given before
+            .environment(\.esmInitialAnswer, answers[key])
 
             if itemAllowsNotApplicable(item) {
                 notApplicableCheckbox(isChecked: $currentNotApplicable)
@@ -261,6 +263,8 @@ public struct ESMFormView: View {
                             answers[entry.key] = answer
                         }
                     )
+                    // A row recreated after scrolling shows its answer again
+                    .environment(\.esmInitialAnswer, answers[entry.key])
                 }
 
                 if showsNotApplicable {

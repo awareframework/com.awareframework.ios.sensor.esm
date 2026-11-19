@@ -8,6 +8,8 @@ public struct ESMCheckboxView: View {
     @State private var selected: Set<String> = []
     @State private var otherText: String = ""
     @Environment(\.esmHideSubmitButton) private var hideSubmitButton
+    @Environment(\.esmInitialAnswer) private var initialAnswer
+    @State private var restored = false
 
     public init(item: ESMItem, onSubmit: @escaping (String) -> Void) {
         self.item = item
@@ -19,6 +21,7 @@ public struct ESMCheckboxView: View {
             ForEach(item.esmCheckboxes ?? [], id: \.self) { option in
                 checkboxRow(option)
             }
+            .onAppear(perform: restore)
 
             if !hideSubmitButton {
                 Button(item.esmSubmit ?? "OK") {
@@ -27,6 +30,23 @@ public struct ESMCheckboxView: View {
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity)
                 .padding()
+            }
+        }
+    }
+
+    /// Show the earlier answer (a JSON array of the selected options; "Other: text" for the other option)
+    private func restore() {
+        guard !restored else { return }
+        restored = true
+        guard let answer = initialAnswer, let data = answer.data(using: .utf8),
+              let values = try? JSONSerialization.jsonObject(with: data) as? [String] else { return }
+        let options = item.esmCheckboxes ?? []
+        for value in values {
+            if options.contains(value) {
+                selected.insert(value)
+            } else if let other = options.first(where: { isOtherOption($0) && value.hasPrefix("\($0): ") }) {
+                selected.insert(other)
+                otherText = String(value.dropFirst(other.count + 2))
             }
         }
     }

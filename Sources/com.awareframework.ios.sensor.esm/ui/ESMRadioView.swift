@@ -7,6 +7,8 @@ public struct ESMRadioView: View {
 
     @State private var selected: String?
     @Environment(\.esmHideSubmitButton) private var hideSubmitButton
+    @Environment(\.esmInitialAnswer) private var initialAnswer
+    @State private var restored = false
 
     public init(item: ESMItem, onSubmit: @escaping (String) -> Void) {
         self.item = item
@@ -18,6 +20,7 @@ public struct ESMRadioView: View {
             ForEach(item.esmRadios ?? [], id: \.self) { option in
                 radioRow(option)
             }
+            .onAppear(perform: restore)
 
             if !hideSubmitButton {
                 Button(item.esmSubmit ?? "OK") {
@@ -29,6 +32,13 @@ public struct ESMRadioView: View {
                 .padding()
             }
         }
+    }
+
+    /// Show the earlier answer as selected
+    private func restore() {
+        guard !restored else { return }
+        restored = true
+        if let answer = initialAnswer, (item.esmRadios ?? []).contains(answer) { selected = answer }
     }
 
     private func radioRow(_ option: String) -> some View {

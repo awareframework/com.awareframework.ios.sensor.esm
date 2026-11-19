@@ -7,6 +7,8 @@ public struct ESMLikertView: View {
 
     @State private var selected: Int?
     @Environment(\.esmHideSubmitButton) private var hideSubmitButton
+    @Environment(\.esmInitialAnswer) private var initialAnswer
+    @State private var restored = false
 
     public init(item: ESMItem, onSubmit: @escaping (String) -> Void) {
         self.item = item
@@ -23,10 +25,18 @@ public struct ESMLikertView: View {
         VStack(spacing: 16) {
             scaleLabels
             scaleButtons
+                .onAppear(perform: restore)
             if !hideSubmitButton {
                 submitButton
             }
         }
+    }
+
+    /// Show the earlier answer as selected
+    private func restore() {
+        guard !restored else { return }
+        restored = true
+        if let answer = initialAnswer, let value = Int(answer), options.contains(value) { selected = value }
     }
 
     private var scaleLabels: some View {
