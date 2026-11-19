@@ -30,6 +30,7 @@ See the [core package README](https://github.com/awareframework/com.awareframewo
 + `loadSchedules(from data: Data)`: Loads schedule JSON from raw data.
 + `loadSchedules(from url: URL)`: Loads schedule JSON from a local file URL.
 + `submitAnswer(item:scheduleId:answer:notificationTime:)`: Saves an answered ESM item.
++ `submitAnswers(schedule:answers:notificationTime:)`: Saves the answers that `ESMFormView` returns, including the questions selected by branches (`esm_flows`). Returns the number saved.
 + `dismissESM(item:scheduleId:notificationTime:)`: Saves a dismissed ESM item.
 + `expireESM(item:scheduleId:notificationTime:)`: Saves an expired ESM item.
 
@@ -140,8 +141,43 @@ A complete all-types sample is available at `Examples/esm_all_types_sample.json`
 | `esm_title`, `esm_instructions` | Question text. |
 | `esm_submit` | Label of the submit button. (default = `"Submit"`) |
 | `esm_na` | Non-zero shows a "Not applicable" option. |
+| `esm_flows` | Branches: questions to ask next, chosen by this question's answer. See [Branches](#branches-esm_flows). |
 
 Likert answers are the selected value as a string, from `"1"` to `esm_likert_max` in steps of `esm_likert_step`.
+
+## Branches (`esm_flows`)
+
+A question can lead to other questions depending on its answer. The format is the one used by
+AWAREFramework (v2) and the AWARE dashboard:
+
+```json
+{ "esm": {
+    "esm_type": 2,
+    "esm_title": "Did you exercise today?",
+    "esm_radios": ["Yes", "No"],
+    "esm_trigger": "exercised",
+    "esm_flows": [
+      { "user_answer": "Yes",
+        "next_esm": { "esm": { "esm_type": 4, "esm_title": "How intense was it?", "esm_likert_max": 5,
+                               "esm_trigger": "intensity" } } },
+      { "user_answer": "No",
+        "next_esm": { "esm": { "esm_type": 1, "esm_title": "What stopped you?", "esm_trigger": "barrier" } } }
+    ] } }
+```
+
++ A flow is chosen when the answer equals `user_answer` (white space around it is ignored). `"*"` matches any
+  answer except an empty one and `"NA"` (not applicable). For a checkbox question, a flow is also chosen when
+  `user_answer` is one of the selected options. Several flows can match; their questions are asked in order.
++ A question in `next_esm` can have its own `esm_flows`, so branches can be nested (up to 16 levels).
++ `esm_flows` can also be a JSON string holding the array, as AWAREFramework stored it.
++ `ESMFormView` inserts the chosen questions right after the answered question: in one-by-one mode they come
+  next, and in single-line mode they appear below it (indented). Changing an answer removes the questions of the
+  branch it no longer chooses, and their answers are not returned.
++ Give each question in a branch a unique `esm_trigger`. A question without one is keyed
+  `<parent key>_flow<n>`.
++ Save the answers with `submitAnswers(schedule:answers:notificationTime:)`, which also saves the answers to
+  questions in branches (looping over `schedule.esms` alone would miss them). `ESMSchedule.surveyEntries(answers:)`
+  returns the questions shown for given answers, if you build your own form.
 
 ## Broadcasts
 
@@ -286,11 +322,9 @@ struct StudyApp: App {
                         schedule: p.schedule,
                         notificationTime: p.notificationTime,
                         onCompleted: { answers in            // [esm_trigger: answer]
-                            for wrapper in p.schedule.esms {
-                                guard let trigger = wrapper.esm.esmTrigger, let answer = answers[trigger] else { continue }
-                                esm.submitAnswer(item: wrapper.esm, scheduleId: p.schedule.scheduleId,
-                                                 answer: answer, notificationTime: p.notificationTime)
-                            }
+                            // Saves every answered question, including those selected by esm_flows
+                            esm.submitAnswers(schedule: p.schedule, answers: answers,
+                                              notificationTime: p.notificationTime)
                             appDelegate.pending = nil
                         },
                         onDismissed: {

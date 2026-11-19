@@ -6,7 +6,18 @@ private struct ESMHideSubmitButtonKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct ESMInitialAnswerKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
 extension EnvironmentValues {
+    /// The answer given earlier to this question (for example before going back to it in
+    /// `ESMFormView`). Question views show it as selected when they appear. `"NA"` is ignored.
+    public var esmInitialAnswer: String? {
+        get { self[ESMInitialAnswerKey.self] }
+        set { self[ESMInitialAnswerKey.self] = newValue }
+    }
+
     /// When `true`, per-question submit buttons are hidden and the parent
     /// provides a single global Submit button (single-line mode).
     var esmHideSubmitButton: Bool {

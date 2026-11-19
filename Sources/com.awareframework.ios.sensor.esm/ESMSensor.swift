@@ -205,6 +205,32 @@ public final class ESMSensor: AwareSensor {
         notificationCenter.post(name: .actionAwareESMAnswered, object: self, userInfo: ["data": data])
     }
 
+    /// Save the answers that `ESMFormView` passes to `onCompleted`, for every question of the survey:
+    /// the schedule's questions and the questions their answers selected (`esm_flows`), in order.
+    ///
+    /// - Parameters:
+    ///   - schedule: The schedule that was answered.
+    ///   - answers: The answers by key (`esm_trigger`, or the key `ESMFormView` gave a question without one).
+    ///   - notificationTime: Milliseconds since epoch when the notification fired.
+    /// - Returns: The number of answers saved.
+    @discardableResult
+    public func submitAnswers(
+        schedule: ESMSchedule,
+        answers: [String: String],
+        notificationTime: Int64 = 0
+    ) -> Int {
+        let answered = schedule.answeredEntries(answers: answers)
+        for (entry, answer) in answered {
+            var item = entry.item
+            // A question without esm_trigger is stored under the key the form gave it, so that the
+            // answers of a survey with branches can be told apart on the server
+            if (item.esmTrigger ?? "").isEmpty { item.esmTrigger = entry.key }
+            submitAnswer(item: item, scheduleId: schedule.scheduleId, answer: answer,
+                         notificationTime: notificationTime)
+        }
+        return answered.count
+    }
+
     /// Record that the user dismissed an ESM question without answering.
     public func dismissESM(
         item: ESMItem,

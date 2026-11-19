@@ -7,6 +7,8 @@ public struct ESMScaleView: View {
 
     @State private var value: Double
     @Environment(\.esmHideSubmitButton) private var hideSubmitButton
+    @Environment(\.esmInitialAnswer) private var initialAnswer
+    @State private var restored = false
 
     public init(item: ESMItem, onSubmit: @escaping (String) -> Void) {
         self.item = item
@@ -23,6 +25,12 @@ public struct ESMScaleView: View {
         VStack(spacing: 16) {
             currentValueLabel
             sliderWithLabels
+                .onAppear {
+                    // Show the earlier answer
+                    guard !restored else { return }
+                    restored = true
+                    if let answer = initialAnswer, let v = Double(answer), (minValue...maxValue).contains(v) { value = v }
+                }
             if !hideSubmitButton {
                 submitButton
             }
